@@ -1,0 +1,110 @@
+﻿@page "/"
+@using BlazorAppAIChatdemo.Model
+@using Microsoft.SemanticKernel;
+@using System.Text
+@using System.Web
+@rendermode InteractiveServer
+@inject Kernel kernel
+@attribute [StreamRendering]
+
+<PageTitle>Home</PageTitle>
+
+
+<h1>AI Chat bot using Microsoft Semantic Kernel sdk with free openai API without any api key in blazor</h1>
+
+
+
+<div id="chatbox" class="chat-container">
+     @foreach (var message in chatMessages)
+    {
+        <div class="chat-message @(message.IsUserMessage ? "user-message" : "bot-message")" >
+
+            @((MarkupString)@message.Text)
+        </div>
+     } 
+</div>
+
+
+<div class="message-input">
+
+    <input disabled="@isLoading" type="text" @bind="userInput"  placeholder="Enter your message" />
+    <button disabled="@string.IsNullOrEmpty(userInput)"
+            class="@(string.IsNullOrEmpty(userInput) || isLoading ?  "disabled" :  "enabled")"
+            
+    @onclick="SendMessage">
+        <span>@buttonText</span>
+        <div class="loading-bar @(isLoading ? "show" : "")"></div>
+    </button>
+    <div class="loading-bar @(isLoading ? "show" : "")" style="width: @progressWidth;"></div>
+
+   
+</div>
+
+
+@functions
+{
+    //string myreponse = string.Empty;
+    private string buttonText = "Send";
+    private string progressWidth = "0%";
+    private bool isLoading = false;
+    private string userInput = string.Empty;
+    private List<ChatMessage> chatMessages = new List<ChatMessage>();
+    private string apiRespone = string.Empty;
+    protected override Task OnInitializedAsync()
+    {
+        return base.OnInitializedAsync();
+    }
+
+    private async Task SendMessage()
+    {
+        buttonText = "Loading...";
+
+        isLoading = true;
+        StateHasChanged();
+        try
+        {
+            chatMessages.Add(new ChatMessage(userInput, true)); // Add user's message
+            apiRespone = string.Empty;
+            int messageIndex = -1;
+            await foreach (var game in kernel.InvokePromptStreamingAsync<string>(userInput))
+            {
+                apiRespone += game.Replace("\n", @"<br>").Replace("\t", @"<tab>");
+                if (messageIndex == -1)
+                {
+                    chatMessages.Add(new ChatMessage(apiRespone, false));
+                    messageIndex++;
+                }
+                else
+                {
+                    chatMessages.LastOrDefault().Text = apiRespone;
+                }
+                this.StateHasChanged();
+                // await Task.Delay(100); // Wait for the UI to update
+                // await jsRuntime.InvokeVoidAsync("scrollToElement", messageElement);
+                // Console.WriteLine("Scrolling to element: " + messageElement);
+                // var element = await jsRuntime.InvokeAsync<object>("document.getElementById", messageElement);
+                // Console.WriteLine("Element exists in the DOM: " + (element != null));
+                // Console.WriteLine("Chatbox height: " + messageElement.OffsetHeight);
+        
+            }
+           
+
+            // Add bot's response
+            userInput = string.Empty; // Clear the input text box
+                                      // ScrollToBottom();
+  
+        }
+        catch (Exception ex)
+        {
+            apiRespone = $"API call failed with exception: {ex.Message}";
+        }
+
+        isLoading = false;
+        buttonText = "Send";
+
+        StateHasChanged();
+    }
+
+   
+   
+}
